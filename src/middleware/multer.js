@@ -3,15 +3,14 @@ import multer from 'multer';
 export const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 2 * 1024 * 1024,
+    fileSize: 2 * 1024 * 1024, // 2 МБ
   },
   fileFilter: (req, file, cb) => {
-	const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-
-	if (allowedTypes.includes(file.mimetype)) {
-	  cb(null, true)
-	} else {
-	  cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'), false)
-	}
+    // Пропускаємо будь-який тип, який починається з 'image/'
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only image files are allowed.'), false);
+    }
   },
 });
