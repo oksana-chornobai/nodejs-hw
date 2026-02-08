@@ -66,6 +66,7 @@ export const updateNote = async (req, res, next) => {
 
   const note = await Note.findOneAndUpdate({ _id: noteId, userId: req.user._id }, req.body, {
     new: true,
+    includeResultMetadata: true,
   });
 
   if (!note) {
