@@ -1,119 +1,78 @@
-import { Note } from "../models/note.js";
+// src/controllers/notesController.js
 import createHttpError from 'http-errors';
+import { Note } from '../models/note.js';
 
-export const getAllNotes = async (req, res, next) => {
-  try {
-    const { page = 1, perPage = 10, tag, search } = req.query;
+export const getAllNotes = async (req, res) => {
+  const { tag, search, page = 1, perPage = 10 } = req.query;
+  const skip = (page - 1) * perPage;
+  const notesQuery = Note.find({ userId: req.user._id });
 
-    // Створюємо запит
-    const notesQuery = Note.find();
-
-    // Фільтрація по тегу
-    if (tag) {
-      notesQuery.where('tag').equals(tag);
-    }
-
-    // Пошук по тексту
-    if (search) {
-      notesQuery.where({ $text: { $search: search } });
-    }
-
-    // Пагінація
-    const limit = Number(perPage);
-    const pageNumber = Number(page);
-    const skip = (pageNumber - 1) * limit;
-
-    const [totalNotes, notes] = await Promise.all([
-      notesQuery.clone().countDocuments(),
-      notesQuery.skip(skip).limit(limit),
-    ]);
-
-    const totalPages = Math.ceil(totalNotes / limit);
-
-
-    res.status(200).json({
-      notes,
-      totalNotes,
-      totalPages,
-      page: pageNumber,
-      perPage: limit,
-    });
-  } catch (error) {
-    next(error);
+  if (tag) {
+    notesQuery.where('tag').equals(tag);
   }
+  if (search) {
+    notesQuery.where({ $text: { $search: search } });
+  }
+
+  const [totalNotes, notes] = await Promise.all([
+    notesQuery.clone().countDocuments(),
+    notesQuery.skip(skip).limit(perPage),
+  ]);
+
+  const totalPages = Math.ceil(totalNotes / perPage);
+
+  res.status(200).json({
+    page,
+    perPage,
+    totalNotes,
+    notes,
+    totalPages,
+  });
 };
 
 export const getNoteById = async (req, res, next) => {
-  try {
-    const { noteId } = req.params;
-    const note = await Note.findById(noteId);
+  const { noteId } = req.params;
+  const note = await Note.findOne({ _id: noteId, userId: req.user._id });
 
-    if (!note) {
-      throw createHttpError(404, 'Note not found');
-    }
-
-
-    res.status(200).json({
-      data: note,
-    });
-  } catch (error) {
-    next(error);
+  if (!note) {
+    next(createHttpError(404, 'Note not found'));
+    return;
   }
+
+  res.status(200).json(note);
 };
 
-export const createNote = async (req, res, next) => {
-  try {
-    const note = await Note.create(req.body);
-
-
-    res.status(201).json({
-      status: 201,
-      message: "Successfully created a note",
-      data: note,
-    });
-
-
-  } catch (error) {
-    next(error);
-  }
+export const createNote = async (req, res) => {
+  const note = await Note.create({ ...req.body, userId: req.user._id });
+  res.status(201).json(note);
 };
 
 export const deleteNote = async (req, res, next) => {
-  try {
-    const { noteId } = req.params;
-    const note = await Note.findByIdAndDelete(noteId);
-
-    if (!note) {
-      throw createHttpError(404, "Note not found");
-    }
-
-
-    res.status(200).json({
-      data: note,
-    });
-  } catch (error) {
-    next(error);
+  const { noteId } = req.params;
+  const note = await Note.findOneAndDelete({
+    _id: noteId,
+    userId: req.user._id,
+  });
+  if (!note) {
+    next(createHttpError(404, 'Note not found'));
+    return;
   }
+
+  res.status(200).json(note);
 };
 
 export const updateNote = async (req, res, next) => {
-  try {
-    const { noteId } = req.params;
+  const { noteId } = req.params;
 
-    const note = await Note.findByIdAndUpdate(noteId, req.body, {
-      new: true,
-      runValidators: true,
-    });
+  const note = await Note.findOneAndUpdate({ _id: noteId, userId: req.user._id }, req.body, {
+    new: true,
+    includeResultMetadata: true,
+  });
 
-    if (!note) {
-      throw createHttpError(404, "Note not found");
-    }
-
-
-    res.status(200).json({
-      data: note,
-    });
-  } catch (error) {
-    next(error);
+  if (!note) {
+    next(createHttpError(404, 'Note not found'));
+    return;
   }
+
+  res.status(200).json(note);
 };
